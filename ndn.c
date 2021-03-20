@@ -13,12 +13,17 @@
 #define PORT "59000"
 
 int check_ip(char *full_ip);
+int get_cmd(char *cmd);
 
 int main(int argc, char **argv){
 
 	/* Common Variables */
 	int i, errcode;
 	char argvector[5][8] = {"Name", "IP", "TCP", "regIP", "regUDP"}; // Desired Arguments Description
+
+	/* User Interface Variables */
+	char user_str[20], cmd[64], net[64], node_id[64];
+	int cmd_code;
 
 	/* UDP Server Variables */
 	struct addrinfo hints, *res;
@@ -64,23 +69,48 @@ int main(int argc, char **argv){
 	hints.ai_family = AF_INET; // IPv4
 	hints.ai_socktype = SOCK_DGRAM; // UDP socket
 
-	errcode = getaddrinfo("139.136.138.142", "59000", &hints, &res);
+	errcode = getaddrinfo("tejo.tecnico.ulisboa.pt", "59000", &hints, &res);
 	if(errcode != 0) exit(1);
 	
 	/* User Interface */
 
 	while(1){
-		//REG node
-		printf("Estou Aqui!\n");
-		n = sendto(fd, "REG 19 9.9.9.9 9", strlen("REG 19 9.9.9.9 9"), 0, res->ai_addr, res->ai_addrlen);
-		if(n == -1) exit(1);
+		printf(">>>");
+		if(fgets(user_str, 20, stdin)!= NULL){
+			errcode = sscanf(user_str, "%s", cmd);
+			//printf("%s\n", cmd);
+			if(errcode != 1) continue;
+			cmd_code = get_cmd(cmd);
+		}
 
-		addrlen = sizeof(addr);
-		n = recvfrom(fd, buffer, 128, 0, &addr, &addrlen);
-		printf("Chega aqui!\n");
-		if(n == -1) exit(1);
-		buffer[n] = '\0';
-		printf("%s\n", buffer);
+   		switch(cmd_code){
+   			case 1:
+
+   				errcode = sscanf(user_str, "%s ", cmd);
+
+   				n = sendto(fd, "REG 19 19.19.19.19 19", strlen("REG 19 19.19.19.19 19"), 0, res->ai_addr, res->ai_addrlen);
+				if(n == -1) exit(1);
+				
+				addrlen = sizeof(addr);
+				n = recvfrom(fd, buffer, strlen(buffer)-1, 0, &addr, &addrlen);
+				if(n == -1) exit(1);
+				buffer[n] = '\0';
+				printf("%s\n", buffer);
+
+   				break;
+
+   			case 2:
+
+   				break;
+
+   			case 3:
+
+   				break;
+
+   			default:
+   				printf("Invalid command.\n");
+   				break;
+   		}
 
 		break;
 	}
@@ -95,4 +125,11 @@ int main(int argc, char **argv){
 int check_ip(char *full_ip){
 
 	return 0;
+}
+
+int get_cmd(char *cmd){
+	if(strcmp(cmd, "join") == 0) return 1;
+	if(strcmp(cmd, "leave") == 0) return 2;
+	if(strcmp(cmd, "exit") == 0) return 3;
+	else return 0;
 }
