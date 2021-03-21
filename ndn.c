@@ -14,7 +14,6 @@
 
 int check_ip(char *full_ip);
 int get_cmd(char *cmd);
-int reg_node_server();
 void msg_build(char* msg, char* net, char* ndIP, char* TCP);
 
 int main(int argc, char **argv){
@@ -195,11 +194,6 @@ int get_cmd(char *cmd){
 	else return 0;
 }
 
-int reg_node_server(){
-
-
-	
-}
 
 void msg_build(char* msg, char* net, char* ndIP, char* TCP){
 	strcat(msg, net);
