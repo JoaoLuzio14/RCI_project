@@ -1,3 +1,3 @@
 # makefile
-ndn: ndn.c
-	gcc ndn.c -o ndn
+ndn: ndn.c auxfunctions.c ndn.h
+	gcc ndn.c auxfunctions.c ndn.h -o ndn

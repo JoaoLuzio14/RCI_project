@@ -1,4 +1,10 @@
-/* Comment Header */
+/******************************************************************************
+ *
+ * File Name: ndn.c
+ * Autor:  G19 (RCI 20/21) - João Luzio (IST193096) & José Reis (IST193105)
+ * Last Review: 20 Mar 2021
+ *
+ *****************************************************************************/
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -8,13 +14,12 @@
 #include <netdb.h>
 #include <signal.h>
 #include <errno.h>
+#include "ndn.h"
 
 #define IP "139.136.138.142"
 #define PORT "59000"
 
-int check_ip(char *full_ip);
-int get_cmd(char *cmd);
-void msg_build(char* msg, char* net, char* ndIP, char* TCP);
+int regNODE(int regFLAG, int fd, char* net, char* nodeIP, char* nodeTCP, struct sockaddr** ai_addr, socklen_t ai_addrlen);
 
 int main(int argc, char **argv){
 
@@ -29,7 +34,7 @@ int main(int argc, char **argv){
 
 	/* UDP Server Variables */
 	struct addrinfo hints, *res;
-	struct sockaddr addr;
+	struct sockaddr *addr;
 	int fd;
 	ssize_t n;
 	socklen_t addrlen;
@@ -73,6 +78,7 @@ int main(int argc, char **argv){
 	if(errcode != 0) exit(1);
 	
 	/* User Interface */
+	printf("Node Interface:\n");
 	while(1){
 		printf(">>>");
 		if(fgets(user_str, 64, stdin)!= NULL){
@@ -84,37 +90,18 @@ int main(int argc, char **argv){
    		switch(cmd_code){
    			case 1:
    				if(joined != 0){ // Already joined?
-   					printf("Node already joined a net!\n");
+   					printf("\tNode already joined a net!\n");
    					break;
    				}
 
    				errcode = sscanf(user_str, "%s %s %s %s %s", cmd, net, nodeID, bootIP, bootTCP);
    				if((errcode != 3) && (errcode != 5)){
-   					printf("Invalid command syntax.\n");
+   					printf("\tInvalid command syntax.\n");
    					break;
    				}
    				else{
-
-   					strcpy(user_str, "REG ");
-   					cmd[0] = '\0';
-   					msg_build(cmd, net, nodeIP, nodeTCP);
-   					strcat(user_str, cmd);
-   					//printf("%s\n", user_str);
-   					n = sendto(fd, user_str, strlen(user_str), 0, res->ai_addr, res->ai_addrlen);
-					if(n == -1) exit(1);
-					
-					addrlen = sizeof(addr);
-					memset(buffer, '0', sizeof(buffer));
-					n = recvfrom(fd, buffer, strlen(buffer)-1, 0, &addr, &addrlen);
-					if(n == -1) exit(1);
-					buffer[n] = '\0';
-
-					if(strcmp(buffer, "OKREG") == 0) joined = 1;
-					else{
-						printf("The connection to the net was not successful.\n");
-						break;
-					} 
-
+   					joined = regNODE(1, fd, net, nodeIP, nodeTCP, &(res->ai_addr), res->ai_addrlen);
+   					if(joined == 0) break;
    				}
 
    				if(errcode == 3){ // Indirect Join
@@ -128,37 +115,14 @@ int main(int argc, char **argv){
 
    			case 2:
    				if(joined != 1){ // Not joined yet?
-   					printf("Node does not have joined any net!\n");
+   					printf("\tNode does not have joined any net!\n");
    					break;
    				}
 
-   				memset(user_str, '0', strlen(user_str));
+   				joined = regNODE(0, fd, net, nodeIP, nodeTCP, &(res->ai_addr), res->ai_addrlen);
+   				if(joined == 1) break;
 
-				strcpy(user_str, "UNREG ");
-   				cmd[0] = '\0';
-   				msg_build(cmd, net, nodeIP, nodeTCP);
-   				strcat(user_str, cmd);	
-   				//printf("%s\n", user_str);
-
-   				n=sendto(fd,user_str, strlen(user_str),0,res->ai_addr, res->ai_addrlen);
-   					if(n==-1) exit(1);
-
-   				addrlen = sizeof(addr);
-   				memset(buffer, '0', sizeof(buffer));
-   				n = recvfrom(fd, buffer, strlen(buffer)-1, 0, &addr, &addrlen);
-   				if(n==-1) exit(1);
-   				buffer[n]='\0';
-   				//printf("%s\n", buffer);
-
-   				if((strcmp(buffer, "OKUNREG"))==0){
-   					joined=0;
-   					memset(net, '0', sizeof(net));
-					memset(user_str, '0', sizeof(user_str));
-   				}
-   				else{
-   					printf("You are still logged in! ERROR");	
-   				}
-
+   				memset(net, '0', sizeof(net));
    				break;
 
    			case 3:
@@ -166,7 +130,7 @@ int main(int argc, char **argv){
    				break;
 
    			default:
-   				printf("Invalid command.\n");
+   				printf("\tInvalid command.\n");
    				break;
    		}
 
@@ -178,24 +142,47 @@ int main(int argc, char **argv){
 	exit(0);
 }
 
-int check_ip(char *full_ip){
+int regNODE(int regFLAG, int fd, char* net, char* nodeIP, char* nodeTCP, struct sockaddr** ai_addr, socklen_t ai_addrlen){
+	char str[100], auxstr[100];
+	ssize_t n;
+	struct sockaddr addr;
+	socklen_t addrlen;
+	char buffer[128+1];
 
-	return 0;
-}
+	if(regFLAG == 1) strcpy(str, "REG ");
+	else if(regFLAG == 0) strcpy(str, "UNREG ");
 
-int get_cmd(char *cmd){
-	if(strcmp(cmd, "join") == 0) return 1;
-	if(strcmp(cmd, "leave") == 0) return 2;
-	if(strcmp(cmd, "exit") == 0) return 3;
-	else return 0;
-}
+   	msg_build(auxstr, net, nodeIP, nodeTCP);
+   	strcat(str, auxstr);
+   	n = sendto(fd, str, strlen(str), 0, *ai_addr, ai_addrlen);
+	if(n == -1) exit(1);
+					
+	addrlen = sizeof(addr);
+	n = recvfrom(fd, buffer, strlen(buffer)-1, 0, &addr, &addrlen);
+	if(n == -1) exit(1);
+	buffer[n] = '\0';
 
+	if(regFLAG == 1){
+		if(strcmp(buffer, "OKREG") == 0){
+			printf("\tSuccessfully joined %s!\n", net);
+			return 1;
+		}
+		else{
+			printf("\tThe connection to the net was not successful.\n");
+  			return 0;
+		} 
+	}
+	else if(regFLAG == 0){
+		if(strcmp(buffer, "OKUNREG") == 0){
+			printf("\tSuccessfully left %s!\n", net);
+			return 0;
+		}
+		else{
+			printf("\tThe desconnection to the net was not successful.\n");
+  			return 1;
+		} 
+	}
 
-void msg_build(char* msg, char* net, char* ndIP, char* TCP){
-	strcat(msg, net);
-	strcat(msg, " ");
-	strcat(msg, ndIP);
-	strcat(msg, " ");
-	strcat(msg, TCP);
-	strcat(msg, "\0");
+	printf("An unexpected error as occured!\n");
+	exit(1);
 }
