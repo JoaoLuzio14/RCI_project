@@ -14,16 +14,18 @@
 
 int check_ip(char *full_ip);
 int get_cmd(char *cmd);
+void msg_build(char* msg, char* net, char* ndIP, char* TCP);
 
 int main(int argc, char **argv){
 
 	/* Common Variables */
 	int i, errcode;
 	char argvector[5][8] = {"Name", "IP", "TCP", "regIP", "regUDP"}; // Desired Arguments Description
+	char nodeIP[20], nodeTCP[20];
 
 	/* User Interface Variables */
-	char user_str[20], cmd[64], net[64], node_id[64];
-	int cmd_code;
+	char user_str[64], cmd[64], net[64], nodeID[64], bootIP[64], bootTCP[64];
+	int cmd_code, joined = 0;
 
 	/* UDP Server Variables */
 	struct addrinfo hints, *res;
@@ -60,8 +62,10 @@ int main(int argc, char **argv){
 	}
 	*/
 
-	/* UDP Node Server Connection Setup */
+	strcpy(nodeIP, argv[1]);
+	strcpy(nodeTCP, argv[2]);
 
+	/* UDP Node Server Connection Setup */
 	fd = socket(AF_INET, SOCK_DGRAM, 0); // UDP socket
 	if(fd == -1) exit(1);
 
@@ -73,38 +77,70 @@ int main(int argc, char **argv){
 	if(errcode != 0) exit(1);
 	
 	/* User Interface */
-
 	while(1){
 		printf(">>>");
-		if(fgets(user_str, 20, stdin)!= NULL){
+		if(fgets(user_str, 64, stdin)!= NULL){
 			errcode = sscanf(user_str, "%s", cmd);
-			//printf("%s\n", cmd);
 			if(errcode != 1) continue;
-			cmd_code = get_cmd(cmd);
+			cmd_code = get_cmd(cmd); // Get command code
 		}
 
    		switch(cmd_code){
    			case 1:
+   				if(joined != 0){ // Already joined?
+   					printf("Node already joined a net!\n");
+   					break;
+   				}
 
-   				errcode = sscanf(user_str, "%s ", cmd);
+   				errcode = sscanf(user_str, "%s %s %s %s %s", cmd, net, nodeID, bootIP, bootTCP);
+   				if((errcode != 3) && (errcode != 5)){
+   					printf("Invalid command syntax.\n");
+   					break;
+   				}
+   				else{
 
-   				n = sendto(fd, "REG 19 19.19.19.19 19", strlen("REG 19 19.19.19.19 19"), 0, res->ai_addr, res->ai_addrlen);
-				if(n == -1) exit(1);
-				
-				addrlen = sizeof(addr);
-				n = recvfrom(fd, buffer, strlen(buffer)-1, 0, &addr, &addrlen);
-				if(n == -1) exit(1);
-				buffer[n] = '\0';
-				printf("%s\n", buffer);
+   					strcpy(user_str, "REG ");
+   					cmd[0] = '\0';
+   					msg_build(cmd, net, nodeIP, nodeTCP);
+   					strcat(user_str, cmd);
+   					//printf("%s\n", user_str);
+   					n = sendto(fd, user_str, strlen(user_str), 0, res->ai_addr, res->ai_addrlen);
+					if(n == -1) exit(1);
+					
+					addrlen = sizeof(addr);
+					n = recvfrom(fd, buffer, strlen(buffer)-1, 0, &addr, &addrlen);
+					if(n == -1) exit(1);
+					printf("%ld\n", n);
+					buffer[n] = '\0';
+					printf("%s\n", buffer);
+
+					if(strcmp(buffer, "OKR") == 0) joined = 1;
+					else{
+						printf("The connection to the net was not successful.\n");
+						break;
+					} 
+
+   				}
+
+   				if(errcode == 3){ // Indirect Join
+
+   				}
+   				else if(errcode == 5){ // Direct Join
+
+   				}
 
    				break;
 
    			case 2:
+   				if(joined != 1){ // Not joined yet?
+   					printf("Node does not have joined any net!\n");
+   					break;
+   				}
 
    				break;
 
    			case 3:
-
+   				exit(0);
    				break;
 
    			default:
@@ -112,11 +148,9 @@ int main(int argc, char **argv){
    				break;
    		}
 
-		break;
 	}
 
 	/* UDP Node Server Connection Close */
-
 	freeaddrinfo(res);
 	close(fd);
 	exit(0);
@@ -132,4 +166,13 @@ int get_cmd(char *cmd){
 	if(strcmp(cmd, "leave") == 0) return 2;
 	if(strcmp(cmd, "exit") == 0) return 3;
 	else return 0;
+}
+
+void msg_build(char* msg, char* net, char* ndIP, char* TCP){
+	strcat(msg, net);
+	strcat(msg, " ");
+	strcat(msg, ndIP);
+	strcat(msg, " ");
+	strcat(msg, TCP);
+	strcat(msg, "\0");
 }

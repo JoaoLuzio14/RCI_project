@@ -3,6 +3,6 @@ Dados do Servidor
 IP: 139.136.138.142
 UDP port: 59000
 
-Dados Maquina:
+Meus Dados:
 
-IP: 
+IP: 85.246.203.157
