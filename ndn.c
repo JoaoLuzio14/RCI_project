@@ -2,7 +2,7 @@
  *
  * File Name: ndn.c
  * Autor:  G19 (RCI 20/21) - João Luzio (IST193096) & José Reis (IST193105)
- * Last Review: 20 Mar 2021
+ * Last Review: 22 Mar 2021
  *
  *****************************************************************************/
 #include <stdio.h>
@@ -12,19 +12,21 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netdb.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
 #include <signal.h>
 #include <errno.h>
 #include "ndn.h"
 
-#define IP "139.136.138.142"
-#define PORT "59000"
+#define DEFAULT_IP "139.136.138.142"
+#define DEFAULT_PORT "59000"
 
 int regNODE(int regFLAG, int fd, char* net, char* nodeIP, char* nodeTCP, struct sockaddr** ai_addr, socklen_t ai_addrlen);
 
 int main(int argc, char **argv){
 
 	/* Common Variables */
-	int i, errcode;
+	int i, errcode, endFLAG = 0;
 	char argvector[5][8] = {"Name", "IP", "TCP", "regIP", "regUDP"}; // Desired Arguments Description
 	char nodeIP[20], nodeTCP[20];
 
@@ -34,11 +36,11 @@ int main(int argc, char **argv){
 
 	/* UDP Server Variables */
 	struct addrinfo hints, *res;
-	struct sockaddr *addr;
+	struct in_addr addr;
 	int fd;
 	ssize_t n;
-	socklen_t addrlen;
 	char buffer[128+1];
+	struct hostent *node_server_host;
 
 	/* TCP Server Variables */	
 
@@ -62,9 +64,15 @@ int main(int argc, char **argv){
 		printf("Arguments are valid.\n");
 	}
 	*/
-
+	/* Arguments converted to general variables */
 	strcpy(nodeIP, argv[1]);
 	strcpy(nodeTCP, argv[2]);
+
+	/*
+	inet_aton(argv[3], &addr);
+	node_server_host = gethostbyaddr((const void *)&addr, sizeof(addr), AF_INET);
+	printf("Host Name: %s\n", node_server_host->h_name);
+	*/
 
 	/* UDP Node Server Connection Setup */
 	fd = socket(AF_INET, SOCK_DGRAM, 0); // UDP socket
@@ -126,14 +134,17 @@ int main(int argc, char **argv){
    				break;
 
    			case 3:
-   				exit(0);
+   				printf("\tShutting down all connections and closing the node...\n");
+   				// Shut Down Connections Here
+   				printf("\tSucess! Node shut down.\n");
+   				endFLAG = 1;
    				break;
 
    			default:
    				printf("\tInvalid command.\n");
    				break;
    		}
-
+   		if(endFLAG == 1) break;
 	}
 
 	/* UDP Node Server Connection Close */

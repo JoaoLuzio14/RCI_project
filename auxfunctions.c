@@ -8,6 +8,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <ctype.h>
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -17,8 +18,26 @@
 #include "ndn.h"
 
 int check_ip(char *full_ip){
-
-	return 0;
+	int i, num, dots = 0;
+    char *ptr;
+    if(full_ip == NULL){
+    	return 0;
+      	ptr = strtok(full_ip, ".");
+      	if(ptr == NULL) return 0;
+    }
+   	while(ptr){
+      	if(!val_number(ptr)){
+      		return 0;
+         	num = atoi(ptr);
+      	}
+        if(num >= 0 && num <= 255){
+           	ptr = strtok(NULL, ".");
+           	if(ptr != NULL) dots++;
+        } 
+        else return 0;
+    }
+    if(dots != 3) return 0;
+    return 1;
 }
 
 int get_cmd(char *cmd){
@@ -34,4 +53,14 @@ void msg_build(char* msg, char* net, char* ndIP, char* TCP){
 	strcat(msg, ndIP);
 	strcat(msg, " ");
 	strcat(msg, TCP);
+}
+
+int val_number(char *str){
+   	while(*str){
+     	 if(!isdigit(*str)){
+        	 return 0;
+     	 }
+     	 str++;
+  	 }
+   	return 1;
 }

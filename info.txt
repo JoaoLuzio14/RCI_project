@@ -1,0 +1,13 @@
+Acesso directo ao servidor: nc tejo.tecnico.ulisboa.pt -u 59000
+IP: 85.246.203.157
+
+Dados do Servidor:
+HOST: tejo.tecnico.ulisboa.pt
+IP: 139.136.138.142
+UDP port: 59000
+
+Perguntas:
+
+Necessario verificar se o o IP do no ja esta registado na rede?
+
+O mesmo no pode estar simultaneamente ligado a diversas redes?

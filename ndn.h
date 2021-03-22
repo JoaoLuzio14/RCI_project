@@ -13,6 +13,7 @@
 
 int check_ip(char *full_ip);
 int get_cmd(char *cmd);
+int val_number(char *str);
 void msg_build(char* msg, char* net, char* ndIP, char* TCP);
 
 #endif // NDN_H_INCLUDED
