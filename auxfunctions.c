@@ -49,12 +49,19 @@ int get_cmd(char *cmd){
 	else return 0;
 }
 
-void msg_build(char* msg, char* net, char* ndIP, char* TCP){
+void reg_msg_build(char* msg, char* net, char* ndIP, char* TCP){
 	strcat(msg, net);
 	strcat(msg, " ");
 	strcat(msg, ndIP);
 	strcat(msg, " ");
 	strcat(msg, TCP);
+  strcat(msg, "\0");
+}
+
+void extern_msg_build(char* msg, char* extIP, char* extTCP){
+  strcat(msg, extIP);
+  strcat(msg, " ");
+  strcat(msg, extTCP);
   strcat(msg, "\0");
 }
 

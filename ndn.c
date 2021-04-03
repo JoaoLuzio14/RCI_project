@@ -35,8 +35,12 @@ int main(int argc, char **argv){
 
 	/* User Interface Variables */
 	char user_str[64], cmd[64], net[64], nodeID[64], bootIP[64], bootTCP[64];
-	int fd, cmd_code, joined = 0;
-
+	int fd, cmd_code, counter, joined = 0;
+	char host[NI_MAXHOST], service[NI_MAXSERV]; // consts in <netdb.h>
+	struct sockaddr addr_tcp;
+	socklen_t addrlen_tcp;
+	fd_set rfds;
+	struct timeval tv;
 
 	/* Node Topology Variables */
 	contact extern_node, backup_node;
@@ -44,6 +48,7 @@ int main(int argc, char **argv){
 	/* TCP Server Variables */	
 	struct addrinfo hints, *res;
 	struct in_addr addr;
+	socklen_t addrlen;
 	ssize_t n;
 	char buffer[128+1];
 	int fd_server;
@@ -84,19 +89,22 @@ int main(int argc, char **argv){
 		printf("Error specifying UDP port.\n");
 		exit(1);
 	}
+	tv.tv_sec = 2;
+    tv.tv_usec = 0;
 	printf("Arguments are valid.\n\n\n\n\n");
 
 	/* TCP Server Connection */
 
-	if((fd_server=socket(AF_INET,SOCK_STREAM,0))==-1)exit(1); //TCP type of socket
+	if((fd_server=socket(AF_INET,SOCK_STREAM,0)) == -1) exit(1); //TCP type of socket
 
-	memset(&hints,0,sizeof hints);
-	hints.ai_family=AF_INET;		//IPv4
-	hints.ai_socktype=SOCK_STREAM;  //TCP socket
-	hints.ai_flags=AI_PASSIVE;
+	memset(&hints, 0, sizeof hints);
+	hints.ai_family = AF_INET; //IPv4
+	hints.ai_socktype = SOCK_STREAM; //TCP socket
+	hints.ai_flags = AI_PASSIVE;
 
-	if((errcode=getaddrinfo(NULL, nodeTCP, &hints, &res))!=0) 
+	if((errcode=getaddrinfo(NULL, nodeTCP, &hints, &res))!=0){
 		fprintf(stderr,"TCP error: getaddrinfo: %s\n",gai_strerror(errcode));
+	}
  
 	if (bind(fd_server, res->ai_addr, res->ai_addrlen)==1){
 		printf("Error registering server address with the system (bind)");
@@ -107,14 +115,13 @@ int main(int argc, char **argv){
 	}
 
 	/* User Interface */
-
 	state = unreg; // Inicial State Defined
 	printf("Node Interface:\n");
 
-	while(1){
+	printf(">>> "); // Command Line Prompt
+	fflush(stdout);
 
-		printf(">>> "); // Command Line Prompt
-		fflush(stdout);
+	while(1){
 
 		FD_ZERO(&ready_sockets);
 		switch(state){
@@ -169,6 +176,8 @@ int main(int argc, char **argv){
 					   				}
 					   				else{
 						   				if(errcode == 3){ // Indirect Join
+						   					bootIP[0] = '\0';
+						   					bootTCP[0] = '\0';
 						   					if(getEXT(net, regIP, regUDP, bootIP, bootTCP) == -1) break;
 						   				}
 						   				if(errcode == 5){ // Direct Join
@@ -182,10 +191,34 @@ int main(int argc, char **argv){
 											}
 						   				}
 										strcpy(extern_node.node_ip, bootIP);
-										strcpy(extern_node.node_TCP, bootTCP);
+										strcpy(extern_node.node_tcp, bootTCP);
 
-										if((extern_node.node_ip != NULL) && (extern_node.node_TCP != NULL)){ // Connect to external neighbour
-											// connect to external neighbour
+										if((bootIP[0] != '\0') && (bootTCP[0] != '\0')){ // Connect to external neighbour
+											fd = tcp_connection(extern_node.node_ip, extern_node.node_tcp);
+
+											FD_ZERO(&rfds);
+											FD_SET(fd, &rfds);
+
+											counter = select(fd+1, &rfds, (fd_set*)NULL, (fd_set*)NULL, &tv);
+											if(counter <= 0){
+												printf("\tError establishing connection with external neighbour node!\n");
+												close(fd);
+												break;
+											}
+
+											bzero(buffer, sizeof(buffer));
+											n = read(fd, buffer, sizeof(buffer));
+
+											if((sscanf(buffer, "%s %s %s", user_str, backup_node.node_ip, backup_node.node_tcp) != 3) || (strcmp(user_str, "EXTERN") != 0) || (n <= 0)){
+												printf("\t%s\n", buffer);
+												printf("\tError getting external neighbour node information.\n");
+												close(fd);
+												break;
+											}
+											else{
+												// receive data and fill my expedition table!
+											}
+											// then advertise myself :D
 										}
 
 					   					joined = regNODE(1, net, nodeIP, nodeTCP, regIP, regUDP);
@@ -203,14 +236,17 @@ int main(int argc, char **argv){
 					   			default:
 					   				printf("\tNode does not have joined any net yet!\n");
 					   				break;
-					   		}				
+					   		}	
+							if(state != getout){
+					   			printf(">>> "); // Command Line Prompt
+								fflush(stdout);			
+					   		}		
 						}
 					}
 					break;
 
 				case reg:
-					if(FD_ISSET(0, &ready_sockets)){
-						
+					if(FD_ISSET(0, &ready_sockets)){				
 						FD_CLR(0, &ready_sockets);
 						if(fgets(user_str, 64, stdin)!= NULL){
 
@@ -229,7 +265,7 @@ int main(int argc, char **argv){
 					   					printf("\tNode does not have joined any net!\n");
 					   					break;
 					   				}
-
+					   				// shut down all connection with other nodes here
 					   				joined = regNODE(0, net, nodeIP, nodeTCP, regIP, regUDP);
 					   				if(joined == 1) break;
 					   				else if(joined == 0) state = unreg;
@@ -239,6 +275,7 @@ int main(int argc, char **argv){
 
 					   			case 3: // exit
 					   				printf("\tShutting down all connections and closing the node...\n");
+					   				// shut down all connection with other nodes here
 					   				if(joined == 1){
 					   					joined = regNODE(0, net, nodeIP, nodeTCP, regIP, regUDP);
 					   				}
@@ -248,21 +285,56 @@ int main(int argc, char **argv){
 
 					   			case 4: // show topology
 					   				if(extern_node.node_ip == NULL){
-					   					printf("\tThe node is alone\n");
+					   					printf("\tThe node is alone in the net.\n");
+					   					break;
 					   				}
-					   				printf("\tEXTERNAL NEIGHBOUR: %s %s\n", extern_node.node_ip, extern_node.node_TCP);
-					   				printf("\tBACKUP NEIGHBOUR: %s %s\n", backup_node.node_ip, backup_node.node_TCP);
+					   				else{
+						   				printf("\tEXTERNAL NEIGHBOUR: %s %s\n", extern_node.node_ip, extern_node.node_tcp);
+						   				printf("\tBACKUP NEIGHBOUR: %s %s\n", backup_node.node_ip, backup_node.node_tcp);
+					   				}
 					   				break;
 
 					   			default:
 					   				printf("\tNode already joined a net!\n");
 					   				break;
-					   		}				
+					   		}	
+					   		if(state != getout){
+					   			printf(">>> "); // Command Line Prompt
+								fflush(stdout);			
+					   		}	
 						}
 					}
 					else if(FD_ISSET(fd_server, &ready_sockets)){
 						FD_CLR(fd_server, &ready_sockets);
-						// check new connection to the server
+
+						addrlen_tcp=sizeof(addr_tcp);
+						if((fd = accept(fd_server, &addr_tcp, &addrlen_tcp)) == -1) exit(1);
+
+						if(extern_node.node_ip == NULL){
+							strcpy(extern_node.node_ip, addr_tcp.sa_data);
+							if((errcode = getnameinfo(&addr_tcp, addrlen_tcp, host, sizeof(host), service, sizeof(service), 0)) != 0){
+								fprintf(stderr,"error: getnameinfo: %s\n",gai_strerror(errcode));
+								exit(1);
+							}
+							strcpy(extern_node.node_tcp, service);
+							strcpy(backup_node.node_ip, nodeIP);
+							strcpy(backup_node.node_tcp, nodeTCP);
+						}
+
+						// printf("%s\n", extern_node.node_ip);
+						// printf("%s\n", extern_node.node_tcp);
+
+						bzero(buffer, sizeof(buffer));
+						user_str[0] = '\0';
+						strcpy(buffer, "EXTERN ");
+						extern_msg_build(user_str, extern_node.node_ip, extern_node.node_tcp);
+						strcat(buffer, user_str);
+
+						// printf("%s\n", buffer);
+
+						n = write(fd, buffer, sizeof(buffer));
+
+						// send new connection my expedition table
 					}
 					break;
 
@@ -274,6 +346,8 @@ int main(int argc, char **argv){
 			}
 		}
 	}
+	close(fd); // remove later!
+
 	freeaddrinfo(res);
 	close(fd_server);
 	exit(0);

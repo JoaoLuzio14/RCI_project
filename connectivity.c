@@ -21,6 +21,30 @@
 
 #define BUFFERSIZE 1024
 
+int tcp_connection(char* bootIP, char* bootTCP){
+	struct addrinfo hints, *res;
+	int fd, n;
+
+	fd = socket(AF_INET, SOCK_STREAM, 0); // TCP socket
+	if (fd == -1) return fd; // error
+
+	memset(&hints, 0, sizeof hints);
+	hints.ai_family = AF_INET; // IPv4
+	hints.ai_socktype = SOCK_STREAM; // TCP socket
+
+	n = getaddrinfo(bootIP, bootTCP, &hints, &res);
+	if(n != 0) exit(1);
+
+	n = connect(fd, res->ai_addr, res->ai_addrlen);
+	if(n == -1){
+		printf("\tError connecting to TCP server: %s %s\n", bootIP, bootTCP);
+		printf("\t%s\n", strerror(n));;
+		return -1;
+	}
+
+	return fd;
+}
+
 int regNODE(int regFLAG, char* net, char* nodeIP, char* nodeTCP, char* regIP, char* regUDP){
 	char str[100], auxstr[100], buffer[128+1];
 	ssize_t n;
@@ -58,7 +82,7 @@ int regNODE(int regFLAG, char* net, char* nodeIP, char* nodeTCP, char* regIP, ch
 	if(regFLAG == 1) strcpy(str, "REG ");
 	else if(regFLAG == 0) strcpy(str, "UNREG ");
 
-   	msg_build(auxstr, net, nodeIP, nodeTCP);
+   	reg_msg_build(auxstr, net, nodeIP, nodeTCP);
    	strcat(str, auxstr);
    	// printf("%s\n", str);
    	n = sendto(fd, str, strlen(str), 0, res->ai_addr, res->ai_addrlen);
@@ -77,7 +101,6 @@ int regNODE(int regFLAG, char* net, char* nodeIP, char* nodeTCP, char* regIP, ch
 	n = recvfrom(fd, buffer, strlen(buffer)-1, 0, &addr, &addrlen);
 	if(n == -1) exit(1);
 	buffer[n] = '\0';
-	// printf("%s\n", buffer);
 
 	/* Close UDP socket */
 	freeaddrinfo(res);
@@ -99,7 +122,7 @@ int regNODE(int regFLAG, char* net, char* nodeIP, char* nodeTCP, char* regIP, ch
 			return 0;
 		}
 		else{
-			printf("\tThe desconnection to the net was not successful.\n");
+			printf("\tThe desconnection from the net was not successful.\n");
   			return 1;
 		} 
 	}
@@ -118,15 +141,11 @@ int getEXT(char* net, char* regIP, char* regUDP, char* bootIP, char* bootTCP){
 	socklen_t addrlen;
 	int fd, cnt, errcode, i, r;
 	char *token;
-
-
 	fd_set rfds;
 	struct timeval tv;
 
 	tv.tv_sec = 5;
     tv.tv_usec = 0;
-
-
 
     /* UDP node server connection */
 	fd = socket(AF_INET, SOCK_DGRAM, 0); // UDP socket
@@ -141,7 +160,6 @@ int getEXT(char* net, char* regIP, char* regUDP, char* bootIP, char* bootTCP){
 		exit(1);
 	}
 
-	/* Register and Confirm */
 	str[0] = '\0';
 	buffer[0] = '\0';
 
@@ -169,8 +187,6 @@ int getEXT(char* net, char* regIP, char* regUDP, char* bootIP, char* bootTCP){
 	buffer[n] = '\0';
 
 	if(n == 11 + strlen(net)){
-		bootIP = NULL;
-		bootTCP = NULL;
 		freeaddrinfo(res);
 		close(fd);
 		return 0;
@@ -191,7 +207,6 @@ int getEXT(char* net, char* regIP, char* regUDP, char* bootIP, char* bootTCP){
 	while(token != NULL){
 		if(i==0) strcpy(bootIP, token);
 		if(i==1) strcpy(bootTCP, token);
-
 		token = strtok(NULL, " ");
 		i++;
 	}
