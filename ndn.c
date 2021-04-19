@@ -92,8 +92,10 @@ int main(int argc, char **argv){
 		printf("Error specifying UDP port.\n");
 		exit(1);
 	}
+
 	tv.tv_sec = 2;
-    tv.tv_usec = 0;
+	tv.tv_usec = 0;
+
 	printf("Arguments are valid.\n\n\n\n\n");
 
 	/* TCP Server Connection */
@@ -226,9 +228,9 @@ int main(int argc, char **argv){
 
 										if((extern_node.node_ip[0] != '\0') && (extern_node.node_tcp[0] != '\0')){ // Connect to external neighbour
 											fd = tcp_connection(extern_node.node_ip, extern_node.node_tcp);
-
+											// Send Self Info to External
 											bzero(buffer, sizeof(buffer));
-											sprintf(buffer, "NEW %s %s", nodeIP, nodeTCP);
+											sprintf(buffer, "NEW %s %s\n", nodeIP, nodeTCP);
 											n = write(fd, buffer, sizeof(buffer));
 											if(n <= 0){
 												printf("\tError sending node info!\n");
@@ -244,22 +246,29 @@ int main(int argc, char **argv){
 												close(fd);
 												break;
 											}
-
 											bzero(buffer, sizeof(buffer));
 											n = read(fd, buffer, sizeof(buffer));
 											if(n <= 0){
 												printf("\tError receiving node info!\n");
 												break;
 											}
-
+											// Get External Neighbour Info
 											if((sscanf(buffer, "%s %s %s", user_str, backup_node.node_ip, backup_node.node_tcp) != 3) || (strcmp(user_str, "EXTERN") != 0) || (n <= 0)){
 												printf("\t%s\n", buffer);
 												printf("\tError getting external neighbour node information.\n");
 												close(fd);
 												break;
 											}
+											printf("%s\n", backup_node.node_tcp);
+											// Self Advertise
+											bzero(buffer, sizeof(buffer));
+											sprintf(buffer, "ADVERTISE %s\n", nodeID);
+											n = write(fd, buffer, sizeof(buffer));
+											if(n <= 0){
+												printf("\tError sending node info!\n");
+												break;
+											}
 
-											// then advertise myself :D
 										}
 
 										// Start Expedition Table
@@ -405,13 +414,25 @@ int main(int argc, char **argv){
 						}
 
 						bzero(buffer, sizeof(buffer));
-						sprintf(buffer, "EXTERN %s %s", extern_node.node_ip, extern_node.node_tcp);
+						sprintf(buffer, "EXTERN %s %s\n", extern_node.node_ip, extern_node.node_tcp);
 						n = write(fd, buffer, sizeof(buffer));
 						if(n <= 0){
 							printf("\tError sending node info!\n");
 							break;
 						}
 						// send new connection my expedition table
+						aux_table = head_table;
+						while(aux_table != NULL){
+							if(aux_table->fd != 0){
+								bzero(buffer, sizeof(buffer));
+								sprintf(buffer, "ADVERTISE %s\n", aux_table->id);
+								n = write(fd, buffer, sizeof(buffer));
+								if(n <= 0){
+									printf("\tError sending expedition table!\n");
+									break;
+								}
+							}
+						}
 					}
 					break;
 

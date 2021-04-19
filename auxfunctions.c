@@ -59,8 +59,20 @@ int val_number(char *str){
 }
 
 int table_in(nodeinfo *head, nodeinfo *new){
+  nodeinfo *aux1;
 
-  return -1;
+  aux1 = (nodeinfo *)head;
+  while(aux1->next != NULL){
+    if(strcmp(aux1->id , new->id) == 0){
+      aux1->fd = new->fd;
+      free(new);
+      return 1; // new fd related with the same node
+    }
+    aux1 = (nodeinfo*) aux1->next;
+  } 
+  aux1->next = (struct nodeinfo *) new;
+
+  return 0;
 }
 
 int table_out(nodeinfo *head, char *node_id){
@@ -84,6 +96,17 @@ int table_out(nodeinfo *head, char *node_id){
 }
 
 int table_free(nodeinfo *head){
+  nodeinfo *aux1, *aux2;
+ 
+  aux1 = (nodeinfo *)head;
+  if(aux1 != NULL) aux2 = (nodeinfo *)head->next;
 
+  while(aux1->next!=NULL){
+    free(aux1);
+    aux1 = aux2;
+    aux2 = (nodeinfo*)aux2->next;
+  }
+  
+  free(aux1);
   return -1;
 }
