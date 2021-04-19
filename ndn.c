@@ -46,7 +46,7 @@ int main(int argc, char **argv){
 	contact extern_node, backup_node;
 
 	/* Expedition Tables Variables */
-	nodeinfo *head_table, *new_table;
+	nodeinfo *head_table, *new_table, *aux_table;
 
 	/* TCP Server Variables */	
 	struct addrinfo hints, *res, *p;
@@ -136,6 +136,14 @@ int main(int argc, char **argv){
 				FD_SET(0, &ready_sockets);
 				FD_SET(fd_server, &ready_sockets);
 				maxfd = max(0, fd_server);
+				aux_table = head_table;
+				while(aux_table != NULL){
+					if(aux_table->fd != 0){
+						FD_SET(aux_table->fd, &ready_sockets);
+						maxfd = max(aux_table->fd, maxfd);
+					}
+					aux_table = (nodeinfo *)aux_table->next;
+				}
 				break;
 			case getout: 
 				endFLAG = 1;
@@ -149,6 +157,26 @@ int main(int argc, char **argv){
 			exit(1);
 		}
 
+		/* Nodes Connected Messages Processing */	
+		if(state == reg){
+			aux_table = head_table;
+			while(aux_table != NULL){
+				if((aux_table->fd != 0) && (FD_ISSET(aux_table->fd, &ready_sockets))){
+					FD_CLR(aux_table->fd, &ready_sockets);
+			
+					bzero(buffer, sizeof(buffer));
+					n = read(fd, buffer, sizeof(buffer));
+					if(n <= 0){
+						printf("\tError receiving a message from a neighbour node!\n");
+						break;
+					}
+					cntr--;
+					// Process Messages
+				}
+				aux_table = (nodeinfo *)aux_table->next;
+			}		
+		}
+		/* Server and User Messages Processing */
 		for(; cntr; --cntr){
 			switch(state){
 				case unreg:
@@ -237,8 +265,8 @@ int main(int argc, char **argv){
 										// Start Expedition Table
 										head_table = (nodeinfo*)calloc(1, sizeof(nodeinfo));
 										strcpy(head_table->id, nodeID);
-										head_table->fd = NULL;
-										head_table->next = (nodeinfo*)NULL;
+										head_table->fd = 0;
+										head_table->next = NULL;
 
 										// Register Node in Node Server
 					   					joined = regNODE(1, net, nodeIP, nodeTCP, regIP, regUDP);
@@ -290,6 +318,8 @@ int main(int argc, char **argv){
 					   				if(joined == 1) break;
 					   				else if(joined == 0) state = unreg;
 
+					   				errcode = table_free(head_table); // free expedition table
+
 					   				memset(net, '\0', sizeof(net));
 					   				break;
 
@@ -300,6 +330,9 @@ int main(int argc, char **argv){
 					   					joined = regNODE(0, net, nodeIP, nodeTCP, regIP, regUDP);
 					   				}
 					   				state = getout;
+
+					   				errcode = table_free(head_table); // free expedition table
+
 					   				if((state == getout) && (joined == 0)) printf("\tSucess! Node shut down.\n");
 					   				break;
 
@@ -312,6 +345,15 @@ int main(int argc, char **argv){
 						   				printf("\tEXTERNAL NEIGHBOUR: %s %s\n", extern_node.node_ip, extern_node.node_tcp);
 						   				printf("\tBACKUP NEIGHBOUR: %s %s\n", backup_node.node_ip, backup_node.node_tcp);
 					   				}
+					   				break;
+
+					   			case 5: // show routing
+					   				printf("\tEXPEDITION TABLE:\n");
+					   				aux_table = head_table;
+									while(aux_table != NULL){
+										printf("\tID:%s\tfd:%d\n", aux_table->id, aux_table->fd);
+										aux_table = (nodeinfo *)aux_table->next;
+									}		
 					   				break;
 
 					   			default:

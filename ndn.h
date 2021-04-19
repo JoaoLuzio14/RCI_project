@@ -29,7 +29,7 @@ typedef struct Node{
 typedef struct Expedition{
 	char id[10];
 	int fd;
-	nodeinfo *next;
+	struct nodeinfo *next;
 }nodeinfo;
 
 /* auxfunctions */

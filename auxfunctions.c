@@ -46,6 +46,7 @@ int get_cmd(char *cmd){
 	if(strcmp(cmd, "leave") == 0) return 2;
 	if(strcmp(cmd, "exit") == 0) return 3;
   if(strcmp(cmd, "st") == 0) return 4;
+  if(strcmp(cmd, "sr") == 0) return 5;
 	else return 0;
 }
 
@@ -57,17 +58,32 @@ int val_number(char *str){
   return 1;
 }
 
-int table_in(nodeinfo *head, nodeinfo *new){ // Zedagaita
+int table_in(nodeinfo *head, nodeinfo *new){
 
   return -1;
 }
 
-int table_out(nodeinfo *head, char *node_id){ // Buzio
+int table_out(nodeinfo *head, char *node_id){
+  nodeinfo *aux1, *aux2;
+
+  aux1 = (nodeinfo *)head;
+  aux2 = (nodeinfo *)aux1->next;
+  while(aux2->next != NULL){
+    if(strcmp(aux2->id, node_id) == 0){
+      aux1->next = aux2->next;
+      free(aux2);
+      return 0;
+    }
+    else{
+      aux1 = (nodeinfo *)aux1->next;
+      aux2 = (nodeinfo *)aux2->next;
+    }
+  }
 
   return -1;
 }
 
-int table_free(nodeinfo *head){ // Zedagaita
+int table_free(nodeinfo *head){
 
   return -1;
 }
