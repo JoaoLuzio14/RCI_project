@@ -36,10 +36,10 @@ int tcp_connection(char* bootIP, char* bootTCP){
 	n = connect(fd, res->ai_addr, res->ai_addrlen);
 	if(n == -1){
 		printf("\tError connecting to TCP server: %s %s\n", bootIP, bootTCP);
-		printf("\t%s\n", strerror(n));;
+		freeaddrinfo(res);
 		return -1;
 	}
-
+	freeaddrinfo(res);
 	return fd;
 }
 
@@ -48,15 +48,15 @@ int regNODE(int regFLAG, char* net, char* nodeIP, char* nodeTCP, char* regIP, ch
 	ssize_t n;
 	struct addrinfo hints, *res;
 	struct sockaddr addr;
-	socklen_t addrlen;
+	socklen_t addrlen = sizeof(struct sockaddr_in);
 	int fd, cnt, errcode;
 	fd_set rfds;
 	struct timeval tv;
 
 	tv.tv_sec = 3;
-    tv.tv_usec = 0;
+  	tv.tv_usec = 0;
 
-    /* UDP node server connection */
+  	/* UDP node server connection */
 	fd = socket(AF_INET, SOCK_DGRAM, 0); // UDP socket
 	if(fd == -1){
 		printf("\tError: Unexpected (%d) socket: %s\n", fd, strerror(errno));
@@ -84,14 +84,14 @@ int regNODE(int regFLAG, char* net, char* nodeIP, char* nodeTCP, char* regIP, ch
 	else if(regFLAG == 0) strcpy(str, "UNREG ");
 
 	sprintf(auxstr, "%s %s %s", net, nodeIP, nodeTCP);
-   	strcat(str, auxstr);
-   
-   	n = sendto(fd, str, strlen(str), 0, res->ai_addr, res->ai_addrlen);
+	strcat(str, auxstr);
+
+	n = sendto(fd, str, strlen(str), 0, res->ai_addr, res->ai_addrlen);
 	if(n == -1){
 		printf("\tError: Unexpected (%ld) sendto: %s\n", n, strerror(errno));
 		return -1;
 	}
-					
+
 	cnt = select(fd+1, &rfds, (fd_set*)NULL, (fd_set*)NULL, &tv);
 	if(cnt <= 0){
 		printf("\tError establishing connection with node server!\n");
@@ -100,9 +100,9 @@ int regNODE(int regFLAG, char* net, char* nodeIP, char* nodeTCP, char* regIP, ch
 		if(regFLAG == 1) return 0;
 		else if(regFLAG == 0) return 1;
 	}
-
+	FD_ZERO(&rfds);
 	addrlen = sizeof(addr);
-	n = recvfrom(fd, buffer, strlen(buffer)-1, 0, &addr, &addrlen);
+	n = recvfrom(fd, buffer, sizeof(buffer)-1, 0, (struct sockaddr*)&addr, &addrlen);
 	if(n == -1){
 		printf("\tError: Unexpected (%ld) recvfrom: %s\n", n, strerror(errno));
 		return -1;
@@ -121,7 +121,7 @@ int regNODE(int regFLAG, char* net, char* nodeIP, char* nodeTCP, char* regIP, ch
 		else{
 			printf("\tThe connection to the net was not successful.\n");
   			return 0;
-		} 
+		}
 	}
 	else if(regFLAG == 0){
 		if(strcmp(buffer, "OKUNREG") == 0){
@@ -131,7 +131,7 @@ int regNODE(int regFLAG, char* net, char* nodeIP, char* nodeTCP, char* regIP, ch
 		else{
 			printf("\tThe desconnection from the net was not successful.\n");
   			return 1;
-		} 
+		}
 	}
 
 	printf("An unexpected error as occured!\n");
@@ -139,22 +139,22 @@ int regNODE(int regFLAG, char* net, char* nodeIP, char* nodeTCP, char* regIP, ch
 }
 
 int getEXT(char* net, char* regIP, char* regUDP, char* bootIP, char* bootTCP, char *nodeIP, char* nodeTCP, int reg){ // reg = 1, unreg = 0
-	
-	char str[BUFFERSIZE+1], buffer[BUFFERSIZE+1];
+
+	char str[100], buffer[128+1];
 	char matrix[BUFFERSIZE][BUFFERSIZE];
 	ssize_t n;
 	struct addrinfo hints, *res;
 	struct sockaddr addr;
-	socklen_t addrlen;
+	socklen_t addrlen = sizeof(struct sockaddr_in);
 	int fd, cnt, errcode, i, r, fixo;
 	char *token;
 	fd_set rfds;
 	struct timeval tv;
 
 	tv.tv_sec = 3;
-    tv.tv_usec = 0;
+  tv.tv_usec = 0;
 
-    /* UDP node server connection */
+  /* UDP node server connection */
 	fd = socket(AF_INET, SOCK_DGRAM, 0); // UDP socket
 	if(fd == -1){
 		printf("\tError: Unexpected (%d) socket: %s\n", fd, strerror(errno));
@@ -176,12 +176,12 @@ int getEXT(char* net, char* regIP, char* regUDP, char* bootIP, char* bootTCP, ch
 	strcpy(str, "NODES ");
 	strcat(str, net);
 
-   	n = sendto(fd, str, strlen(str), 0, res->ai_addr, res->ai_addrlen);
+  n = sendto(fd, str, strlen(str), 0, res->ai_addr, res->ai_addrlen);
 	if(n == -1){
 		printf("\tError: Unexpected (%ld) sendto: %s\n", n, strerror(errno));
 		return -1;
 	};
-			
+
 	FD_ZERO(&rfds);
 	FD_SET(fd,&rfds);
 
@@ -192,9 +192,9 @@ int getEXT(char* net, char* regIP, char* regUDP, char* bootIP, char* bootTCP, ch
 		close(fd);
 		return -1;
 	}
+	FD_ZERO(&rfds);
 
-	addrlen = sizeof(addr);
-	n = recvfrom(fd, buffer, strlen(buffer)-1, 0, &addr, &addrlen);
+	n = recvfrom(fd, buffer, sizeof(buffer)-1, 0, &addr, &addrlen);
 	if(n == -1){
 		printf("\tError: Unexpected (%ld) recvfrom: %s\n", n, strerror(errno));
 		return -1;
@@ -215,10 +215,14 @@ int getEXT(char* net, char* regIP, char* regUDP, char* bootIP, char* bootTCP, ch
 		i++;
 	}
 	fixo=i;
-	if(fixo == 2 && reg == 1) return 2;
+	if(fixo == 2 && reg == 1){
+		freeaddrinfo(res);
+		close(fd);
+		return 2;
+	}
 
 	do{
-		r = rand() % fixo; 
+		r = rand() % fixo;
 		if(r==0) r = 1;
 		token = strtok(matrix[r], " ");
 		i=0;
@@ -228,7 +232,7 @@ int getEXT(char* net, char* regIP, char* regUDP, char* bootIP, char* bootTCP, ch
 			token = strtok(NULL, " ");
 			i++;
 		}
-	}while((strcmp(bootIP,nodeIP)==0) && (strcmp(bootTCP,nodeTCP)==0));	
+	}while((strcmp(bootIP,nodeIP)==0) && (strcmp(bootTCP,nodeTCP)==0));
 	/* Close UDP socket */
 	freeaddrinfo(res);
 	close(fd);

@@ -35,7 +35,7 @@ int main(int argc, char **argv){
 	int maxfd, cntr;
 
 	/* User Interface Variables */
-	char user_str[64], cmd[64], net[64], nodeID[64], bootIP[64], bootTCP[64], except_id[64];
+	char user_str[64], cmd[64], net[64], nodeID[64], bootIP[64], bootTCP[64], except_id[64], extra[256];
 	int fd, except_fd, cmd_code, counter, joined = 0;
 	struct sockaddr addr_tcp;
 	socklen_t addrlen_tcp;
@@ -49,7 +49,7 @@ int main(int argc, char **argv){
 	/* Expedition Tables Variables */
 	nodeinfo *head_table, *new_table, *aux_table;
 
-	/* TCP Server Variables */	
+	/* TCP Server Variables */
 	struct addrinfo hints, *res;
 	ssize_t n;
 	char buffer[128+1];
@@ -57,9 +57,9 @@ int main(int argc, char **argv){
 
 	/* Cache and Objects Manegement Variables */
 	char cache[CACHESIZE][64], obj[CACHESIZE][64], obj_id[64], obj_subname[64];
-	int waiting_fd;	
+	int waiting_fd;
 
-	/* Argument Process */	
+	/* Argument Process */
 	printf("\n");
 	if(argc < 3){
 		printf("Invalid number of arguments. Very few arguments inserted.\nTypical usage: 'ndn IP TCP regIP regUDP'.\n");
@@ -117,7 +117,7 @@ int main(int argc, char **argv){
 	if((errcode=getaddrinfo(NULL, nodeTCP, &hints, &res))!=0){
 		fprintf(stderr,"TCP error: getaddrinfo: %s\n",gai_strerror(errcode));
 	}
- 
+
 	if (bind(fd_server, res->ai_addr, res->ai_addrlen)==1){
 		printf("Error registering server address with the system (bind)");
 		exit(1);
@@ -150,7 +150,7 @@ int main(int argc, char **argv){
 				break;
 			case waiting:
 				FD_SET(fd, &ready_sockets);
-				maxfd = fd;	
+				maxfd = fd;
 				break;
 			case reg: // Node fully operational
 				FD_SET(0, &ready_sockets);
@@ -197,8 +197,9 @@ int main(int argc, char **argv){
 					while(aux_table != NULL){
 						if(aux_table->fd == except_fd){
 							head_table = table_out(head_table, aux_table->id); // Remove from expedition table
+							aux_table = head_table;
 						}
-						aux_table = (nodeinfo *)aux_table->next; 
+						aux_table = (nodeinfo *)aux_table->next;
 					}
 					// Propagate WITHDRAW
 					bzero(buffer, sizeof(buffer));
@@ -209,7 +210,7 @@ int main(int argc, char **argv){
 						if(n <= 0){
 							printf("\tError sending node info!\n");
 							break;
-						}					
+						}
 						new_table = (nodeinfo*)new_table->next;
 					}
 				}
@@ -226,14 +227,14 @@ int main(int argc, char **argv){
 						else if(cmd_code == 2){
 							backup_node.node_ip[0] = '\0';
 							backup_node.node_tcp[0] = '\0';
-							extern_node.fd = 0;	
+							extern_node.fd = 0;
 						}
 						else{
 							for(i = 0; i < 5; i++){
 								if(intern[i].fd != 0){
 									strcpy(extern_node.node_ip, intern[i].node_ip);
 									strcpy(extern_node.node_tcp, intern[i].node_tcp);
-									extern_node.fd = intern[i].fd;	
+									extern_node.fd = intern[i].fd;
 									// Propagate EXTERN
 									bzero(buffer, sizeof(buffer));
 									sprintf(buffer, "EXTERN %s %s\n", intern[i].node_ip, intern[i].node_tcp);
@@ -243,9 +244,9 @@ int main(int argc, char **argv){
 										if(n <= 0){
 											printf("\tError sending node info!\n");
 											break;
-										}					
+										}
 										new_table = (nodeinfo*)new_table->next;
-									}			
+									}
 									break;
 								}
 							}
@@ -299,7 +300,7 @@ int main(int argc, char **argv){
 						exit(1);
 						break;
 					}
-					else backup_node.fd = 0;	
+					else backup_node.fd = 0;
 					// Propagate EXTERN
 					bzero(buffer, sizeof(buffer));
 					sprintf(buffer, "EXTERN %s %s\n", extern_node.node_ip, extern_node.node_tcp);
@@ -309,9 +310,9 @@ int main(int argc, char **argv){
 						if(n <= 0){
 							printf("\tError sending node info!\n");
 							break;
-						}					
+						}
 						new_table = (nodeinfo*)new_table->next;
-					}								
+					}
 					// Propagate ADVERTISE
 					new_table = head_table;
 					while(new_table != NULL){
@@ -321,7 +322,7 @@ int main(int argc, char **argv){
 						if(n <= 0){
 							printf("\tError sending node info!\n");
 							break;
-						}								
+						}
 						new_table = (nodeinfo*)new_table->next;
 					}
 					state = busy;
@@ -345,7 +346,7 @@ int main(int argc, char **argv){
 			if(cntr <= 0){
 				printf("\tError: Did not received advertise form internal neighbour!\n");
 				printf(">>> "); // Command Line Prompt
-				fflush(stdout);	
+				fflush(stdout);
 				state = reg;
 				continue;
 			}
@@ -355,7 +356,7 @@ int main(int argc, char **argv){
 			if(cntr <= 0){
 				printf("\tError: Did not received information about searched object!\n");
 				printf(">>> "); // Command Line Prompt
-				fflush(stdout);	
+				fflush(stdout);
 				state = reg;
 				continue;
 			}
@@ -372,7 +373,7 @@ int main(int argc, char **argv){
 				exit(1);
 			}
 		}
-		/* Nodes Connected Messages Processing */	
+		/* Nodes Connected Messages Processing */
 		if((state == reg) && (head_table != (nodeinfo *)NULL)){
 			aux_table = head_table;
 			while(aux_table != NULL){
@@ -389,14 +390,14 @@ int main(int argc, char **argv){
 						state = handle;
 						break;
 					}
-					
+
 					i=0;
 				    token = strtok(buffer, "\n");
 					while(token != NULL){
 						strcpy(matrix[i], token);
 						token = strtok(NULL, "\n");
 						i++;
-					}					
+					}
 					i--;
 
 					while(i>=0){
@@ -435,7 +436,7 @@ int main(int argc, char **argv){
 									if(strcmp(new_table->id, except_id) == 0){
 										head_table = table_out(head_table, new_table->id);
 										break;
-									}					
+									}
 									new_table = (nodeinfo*)new_table->next;
 								}
 								new_table = head_table;
@@ -477,7 +478,7 @@ int main(int argc, char **argv){
 					   						break;
 					   					}
 					   				}
-					   				if(i == CACHESIZE){ 
+					   				if(i == CACHESIZE){
 					   					bzero(buffer, sizeof(buffer));
 					   					sprintf(buffer, "NODATA %s\n", user_str);
 					   					n = write(aux_table->fd, buffer, sizeof(buffer));
@@ -514,7 +515,7 @@ int main(int argc, char **argv){
 												}
 												fd = new_table->fd;
 												waiting_fd = aux_table->fd;
-						   						state = waiting;						   						
+						   						state = waiting;
 						   						break;
 						   					}
 						   					new_table = (nodeinfo *)new_table->next;
@@ -526,12 +527,12 @@ int main(int argc, char **argv){
 								break;
 						}
 						if((state == waiting) || (cmd_code == -1)) break;
-						i--;	
+						i--;
 					}
 				}
 				aux_table = (nodeinfo *)aux_table->next;
 			}
-			if(state == waiting) continue;	
+			if(state == waiting) continue;
 		}
 		/* Server and User Messages Processing */
 		for(; cntr; --cntr){
@@ -548,7 +549,7 @@ int main(int argc, char **argv){
 							state = handle;
 							break;
 						}
-						
+
 						i=0;
 				    	token = strtok(buffer, "\n");
 						while(token != NULL){
@@ -564,7 +565,7 @@ int main(int argc, char **argv){
 
 							bzero(cmd, sizeof(cmd));
 							if(sscanf(buffer, "%s", cmd) != 1) continue;
-							if(strcmp(cmd, "ADVERTISE") == 0){							
+							if(strcmp(cmd, "ADVERTISE") == 0){
 								// Update Expedition Table
 								new_table = (nodeinfo*)calloc(1, sizeof(nodeinfo));
 								sscanf(buffer, "%s %s", user_str, new_table->id);
@@ -603,7 +604,7 @@ int main(int argc, char **argv){
 							printf("\tError receiving message (data)!\n");
 							state = reg;
 							printf(">>> "); // Command Line Prompt
-							fflush(stdout);	
+							fflush(stdout);
 							break;
 						}
 
@@ -617,7 +618,7 @@ int main(int argc, char **argv){
 							}
 							else printf("\tWrong message received about object named %s.\n", obj_subname);
 							printf(">>> "); // Command Line Prompt
-							fflush(stdout);	
+							fflush(stdout);
 							state = reg;
 							break;
 						}
@@ -646,7 +647,7 @@ int main(int argc, char **argv){
 						}
 						if(waiting_fd == 0){
 							printf(">>> "); // Command Line Prompt
-							fflush(stdout);	
+							fflush(stdout);
 						}
 						state = reg;
 					}
@@ -773,17 +774,17 @@ int main(int argc, char **argv){
 					   			default:
 					   				printf("\tNode does not have joined any net yet!\n");
 					   				break;
-					   		}	
+					   		}
 							if(state != getout){
 					   			printf(">>> "); // Command Line Prompt
-								fflush(stdout);			
-					   		}		
+								fflush(stdout);
+					   		}
 						}
 					}
 					break;
 
 				case reg:
-					if(FD_ISSET(0, &ready_sockets)){				
+					if(FD_ISSET(0, &ready_sockets)){
 						FD_CLR(0, &ready_sockets);
 						if(fgets(user_str, 64, stdin)!= NULL){
 							bzero(cmd, sizeof(cmd));
@@ -864,7 +865,7 @@ int main(int argc, char **argv){
 										if(aux_table->fd == 0) printf("\tID:%s\tfd:-\n", aux_table->id);
 										else printf("\tID:%s\tfd:%d\n", aux_table->id, aux_table->fd);
 										aux_table = (nodeinfo *)aux_table->next;
-									}		
+									}
 					   				break;
 
 					   			case 6: // show cache
@@ -899,7 +900,7 @@ int main(int argc, char **argv){
 					   				else printf("\tObject %s added with success.\n", obj_subname);
 					   				break;
 
-					   			case 8: // get 
+					   			case 8: // get
 					   				bzero(buffer, sizeof(buffer));
 					   				errcode = sscanf(user_str, "%s %s", cmd, buffer);
 					   				if(errcode != 2){
@@ -922,9 +923,9 @@ int main(int argc, char **argv){
 					   					aux_table = (nodeinfo *)head_table->next;
 					   					while(aux_table != NULL){
 					   						if(strcmp(aux_table->id, obj_id) == 0){
-												bzero(user_str, sizeof(user_str));
-												sprintf(user_str, "INTEREST %s\n", buffer);
-												n = write(aux_table->fd, user_str, sizeof(buffer));
+												bzero(extra, sizeof(extra));
+												sprintf(extra, "INTEREST %s\n", buffer);
+												n = write(aux_table->fd, extra, sizeof(extra));
 												if(n <= 0){
 													printf("\tError sending interest message!\n");
 													break;
@@ -983,11 +984,11 @@ int main(int argc, char **argv){
 					   			default:
 					   				printf("\tNode already joined a net!\n");
 					   				break;
-					   		}	
+					   		}
 					   		if((state != getout) && (state != waiting)){
 					   			printf(">>> "); // Command Line Prompt
-								fflush(stdout);			
-					   		}	
+								fflush(stdout);
+					   		}
 						}
 					}
 					else if(FD_ISSET(fd_server, &ready_sockets)){
@@ -1032,7 +1033,7 @@ int main(int argc, char **argv){
 						for(i = 0; i < 5; i++){
 							if(intern[i].fd == 0){
 								strcpy(intern[i].node_ip, bootIP);
-								strcpy(intern[i].node_tcp, bootTCP); 
+								strcpy(intern[i].node_tcp, bootTCP);
 								intern[i].fd = fd;
 								break;
 							}
