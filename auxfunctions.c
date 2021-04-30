@@ -163,12 +163,40 @@ int writeTCP(int fd, char *buffer){
 
   ptr = &buffer[0];
   l = strlen(buffer);
-
   while(l > 0){
     res = write(fd, ptr, l);
     if(res <= 0) return res;
     l-=res;
     ptr += res;
   }
+  return 1;
+}
+
+int readTCP(int fd, char *buffer){
+
+  int i, res, flag = 0;
+  char *ptr;
+
+  ptr = &buffer[0];
+  while(1){
+    res = read(fd, ptr, sizeof(buffer));
+    if(res <= 0) return res;
+    for(i = 1; i <= res; i++){
+      if(*ptr == '\n'){
+        flag = 1;
+        if(i != res) ptr++;
+        break;
+      }
+      else if(*ptr == '\0'){
+        flag = 2;
+        break;
+      }
+      ptr++;
+    }
+    if((*ptr == '\0') && (flag == 1)) break;
+    else if(flag == 2) break;
+    else flag = 0;
+  }
+  printf("%s\n", buffer);
   return 1;
 }

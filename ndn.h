@@ -47,6 +47,7 @@ void table_free(nodeinfo *head);
 void cache_in(char cache[CACHESIZE][64], char *object);
 int name_split(char *name, char *id, char *subname);
 int writeTCP(int fd, char *buffer);
+int readTCP(int fd, char *buffer);
 
 /* connectivity */
 int tcp_connection(char* bootIP, char* bootTCP);

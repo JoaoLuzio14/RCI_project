@@ -27,7 +27,7 @@
 int main(int argc, char **argv){
 
 	/* Common Variables */
-	int i, errcode, endFLAG = 0;
+	int i, errcode, aloneFLAG = 0, endFLAG = 0;
 	char nodeIP[20], nodeTCP[20], regIP[20], regUDP[20], *token;
 	char matrix[BUFFERSIZE][BUFFERSIZE];
 	fd_set ready_sockets;
@@ -225,6 +225,7 @@ int main(int argc, char **argv){
 						extern_node.node_tcp[0] = '\0';
 						if(cmd_code == -1) break;
 						else if(cmd_code == 2){
+							aloneFLAG = 0;
 							backup_node.node_ip[0] = '\0';
 							backup_node.node_tcp[0] = '\0';
 							extern_node.fd = 0;
@@ -345,6 +346,13 @@ int main(int argc, char **argv){
 			cntr = select(maxfd + 1, &ready_sockets, (fd_set *)NULL, (fd_set *)NULL, &tv);
 			if(cntr <= 0){
 				printf("\tError: Did not received advertise form internal neighbour!\n");
+				if((strcmp(backup_node.node_ip, nodeIP) == 0) && (strcmp(backup_node.node_tcp, nodeTCP) == 0)  && (aloneFLAG == 0)){
+					extern_node.node_ip[0] = '\0';
+					extern_node.node_tcp[0] = '\0';
+					extern_node.fd = 0;
+					backup_node.node_ip[0] = '\0';
+					backup_node.node_tcp[0] = '\0';
+				}
 				printf(">>> "); // Command Line Prompt
 				fflush(stdout);
 				state = reg;
@@ -562,10 +570,10 @@ int main(int argc, char **argv){
 					 	while(i>=0){
 					 		bzero(buffer, sizeof(buffer));
 					 		strcpy(buffer, matrix[i]);
-
 							bzero(cmd, sizeof(cmd));
 							if(sscanf(buffer, "%s", cmd) != 1) continue;
 							if(strcmp(cmd, "ADVERTISE") == 0){
+								if(aloneFLAG == 0) aloneFLAG = 1;
 								// Update Expedition Table
 								new_table = (nodeinfo*)calloc(1, sizeof(nodeinfo));
 								sscanf(buffer, "%s %s", user_str, new_table->id);
@@ -586,6 +594,13 @@ int main(int argc, char **argv){
 								}
 							}
 							else{
+								if(aloneFLAG == 0){
+									extern_node.node_ip[0] = '\0';
+									extern_node.node_tcp[0] = '\0';
+									extern_node.fd = 0;
+									backup_node.node_ip[0] = '\0';
+									backup_node.node_tcp[0] = '\0';
+								}
 								printf("\tInvalid message received when node was establishing a connection!\n");
 								continue;
 							}
@@ -698,6 +713,7 @@ int main(int argc, char **argv){
 										strcpy(extern_node.node_tcp, bootTCP);
 
 										if((extern_node.node_ip[0] != '\0') && (extern_node.node_tcp[0] != '\0')){ // Connect to external neighbour
+											aloneFLAG = 1; // Node is not alone
 											fd = tcp_connection(extern_node.node_ip, extern_node.node_tcp);
 											extern_node.fd = fd;
 											// Send Self Info to External
@@ -735,7 +751,7 @@ int main(int argc, char **argv){
 											// Self Advertise
 											bzero(buffer, sizeof(buffer));
 											sprintf(buffer, "ADVERTISE %s\n", nodeID);
-											n = write(fd, buffer, sizeof(buffer));
+											n = writeTCP(fd, buffer);
 											if(n <= 0){
 												printf("\tError sending node info!\n");
 												break;
@@ -824,6 +840,7 @@ int main(int argc, char **argv){
 									extern_node.fd = 0;
 									backup_node.node_ip[0] = '\0';
 									backup_node.node_tcp[0] = '\0';
+									aloneFLAG = 0;
 
 									memset(nodeID, '\0', sizeof(nodeID));
 					   				memset(net, '\0', sizeof(net));
